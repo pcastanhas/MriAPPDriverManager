@@ -99,7 +99,7 @@ namespace MriAPPDriverMgrWin
 
         private async void KillButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not int pid)
+            if (!(sender is Button btn) || !(btn.Tag is int pid))
                 return;
 
             var row        = FindRowByPid(pid);
