@@ -17,6 +17,12 @@ namespace MriAPPDriverShared.Models
         public string? Description { get; set; }
         public string? ComputerName { get; set; }
 
+        /// <summary>CPU usage percentage sampled over ~1 second via WMI kernel/user mode times.</summary>
+        public double CpuPercent { get; set; }
+
+        /// <summary>Working set memory in megabytes.</summary>
+        public double MemoryMb { get; set; }
+
         /// <summary>How long the process has been running as of query time.</summary>
         public TimeSpan? RunDuration => StartTime.HasValue
             ? (TimeSpan?)(DateTime.Now - StartTime.Value)
