@@ -126,13 +126,13 @@ namespace MriAPPDriverManager
 
             Console.WriteLine(new string('-', 100));
             Console.WriteLine(
-                $"{"Machine",-18} {"PID",-8} {"Session ID",-12} {"User ID",-12} " +
+                $"{"Machine",-18} {"PID",-8} {"Msg Key",-10} {"User ID",-12} " +
                 $"{"Start Time",-22} {"Running",-10} {"Report",-40}");
             Console.WriteLine(new string('-', 100));
             Console.WriteLine(
                 $"{(info.MachineName ?? _targetMachine),-18} " +
                 $"{info.ProcessId,-8} " +
-                $"{(info.SessionId ?? "N/A"),-12} " +
+                $"{(info.MessageKey?.ToString() ?? "N/A"),-10} " +
                 $"{(info.UserId ?? "N/A"),-12} " +
                 $"{info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",-22} " +
                 $"{FormatDuration(info.RunDuration),-10} " +
@@ -170,7 +170,20 @@ namespace MriAPPDriverManager
             {
                 _logger.LogKilledProcess(info, killedBy: $"Manager CLI (user: {Environment.UserName})");
                 Console.WriteLine($"[OK] PID {targetPid} on {_targetMachine} killed successfully.");
-                Console.WriteLine($"     Session: {info.SessionId ?? "N/A"} | User: {info.UserId ?? "N/A"} | Report: {info.ReportName ?? "N/A"}");
+                Console.WriteLine($"     MsgKey: {info.MessageKey?.ToString() ?? "N/A"} | User: {info.UserId ?? "N/A"} | Report: {info.ReportName ?? "N/A"}");
+
+                if (info.MessageKey.HasValue)
+                {
+                    try
+                    {
+                        await _repository.UpdateProcessStatusKilledAsync(info.MessageKey.Value);
+                        Console.WriteLine($"     Status updated in MRI_Server_Messages.");
+                    }
+                    catch (Exception dbEx)
+                    {
+                        Console.Error.WriteLine($"[WARN] Kill succeeded but failed to update Status: {dbEx.Message}");
+                    }
+                }
             }
             else
             {
@@ -194,7 +207,7 @@ namespace MriAPPDriverManager
         private static void MergeDbInfo(DriverProcessInfo target, DriverProcessInfo? source)
         {
             if (source == null) return;
-            target.SessionId    = source.SessionId;
+            target.MessageKey   = source.MessageKey;
             target.UserId       = source.UserId;
             target.ReportName   = source.ReportName;
             target.Description  = source.Description;
@@ -206,7 +219,7 @@ namespace MriAPPDriverManager
         private static void PrintHeader()
         {
             Console.WriteLine(
-                $"{"Machine",-18} {"PID",-8} {"Session ID",-12} {"User ID",-12} " +
+                $"{"Machine",-18} {"PID",-8} {"Msg Key",-10} {"User ID",-12} " +
                 $"{"Start Time",-22} {"Running",-10} {"Report",-40}");
         }
 
@@ -215,7 +228,7 @@ namespace MriAPPDriverManager
             Console.WriteLine(
                 $"{(info.MachineName ?? _targetMachine),-18} " +
                 $"{info.ProcessId,-8} " +
-                $"{(info.SessionId ?? "N/A"),-12} " +
+                $"{(info.MessageKey?.ToString() ?? "N/A"),-10} " +
                 $"{(info.UserId ?? "N/A"),-12} " +
                 $"{info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",-22} " +
                 $"{FormatDuration(info.RunDuration),-10} " +

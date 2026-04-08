@@ -18,14 +18,13 @@ namespace MriAPPDriverShared.Data
 
         /// <summary>
         /// Looks up report context for a given MriAPPDriverProcessId.
-        /// Parses MriAPPDriverProcessId from the ServerInfo column and
-        /// joins to get SessionId, UserId, StartTime, and ReportName.
+        /// Returns MessageKey, UserId, StartTime, ReportName, and ComputerName.
         /// </summary>
         public async Task<DriverProcessInfo?> GetProcessInfoAsync(int processId)
         {
             const string sql = @"
                 SELECT TOP 1
-                    CAST(Session_Id AS VARCHAR(50))       AS SessionId,
+                    Message_Key                           AS MessageKey,
                     UserId,
                     ProcessStartTime                      AS StartTime,
                     Description                           AS ReportName,
@@ -43,7 +42,7 @@ namespace MriAPPDriverShared.Data
             return new DriverProcessInfo
             {
                 ProcessId    = processId,
-                SessionId    = row.SessionId?.ToString(),
+                MessageKey   = (int?)row.MessageKey,
                 UserId       = row.UserId?.ToString(),
                 StartTime    = row.StartTime,
                 ReportName   = row.ReportName?.ToString(),
@@ -52,7 +51,7 @@ namespace MriAPPDriverShared.Data
         }
 
         /// <summary>
-        /// Returns process info for a list of PIDs in one round-trip.
+        /// Returns process info for a list of PIDs.
         /// </summary>
         public async Task<List<DriverProcessInfo>> GetProcessInfoBatchAsync(IEnumerable<int> processIds)
         {
@@ -63,6 +62,20 @@ namespace MriAPPDriverShared.Data
                 results.Add(info ?? new DriverProcessInfo { ProcessId = pid });
             }
             return results;
+        }
+
+        /// <summary>
+        /// Sets Status = 0 on the MRI_Server_Messages row for the killed process.
+        /// </summary>
+        public async Task UpdateProcessStatusKilledAsync(int messageKey)
+        {
+            const string sql = @"
+                UPDATE MRI_Server_Messages
+                SET    Status = 0
+                WHERE  Message_Key = @MessageKey";
+
+            using var conn = new SqlConnection(_connectionString);
+            await conn.ExecuteAsync(sql, new { MessageKey = messageKey });
         }
     }
 }

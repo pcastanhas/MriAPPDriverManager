@@ -95,7 +95,7 @@ namespace MriAPPDriverShared.Logging
                 : "unknown";
 
             return $"[KILLED] PID={info.ProcessId,-6} | " +
-                   $"Session={info.SessionId ?? "N/A",-12} | " +
+                   $"MsgKey={info.MessageKey?.ToString() ?? "N/A",-10} | " +
                    $"User={info.UserId ?? "N/A",-15} | " +
                    $"Started={info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"} | " +
                    $"Duration={duration} | " +

@@ -82,7 +82,7 @@ namespace MriAPPDriverMonitor
                     var dbInfo = await _repository.GetProcessInfoAsync(info.ProcessId);
                     if (dbInfo != null)
                     {
-                        info.SessionId    = dbInfo.SessionId;
+                        info.MessageKey   = dbInfo.MessageKey;
                         info.UserId       = dbInfo.UserId;
                         info.ReportName   = dbInfo.ReportName;
                         info.Description  = dbInfo.Description;
@@ -95,6 +95,19 @@ namespace MriAPPDriverMonitor
                     if (_processHelper.TryKill(info.ProcessId, out string killError))
                     {
                         _logger.LogKilledProcess(info, killedBy: "Monitor Service");
+
+                        // Update MRI_Server_Messages status
+                        if (info.MessageKey.HasValue)
+                        {
+                            try
+                            {
+                                await _repository.UpdateProcessStatusKilledAsync(info.MessageKey.Value);
+                            }
+                            catch (Exception dbEx)
+                            {
+                                _logger.LogError($"Failed to update Status for MessageKey={info.MessageKey} after kill.", dbEx);
+                            }
+                        }
                     }
                     else
                     {

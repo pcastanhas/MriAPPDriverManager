@@ -8,7 +8,7 @@ namespace MriAPPDriverMgrWin
     {
         private string _machineName = string.Empty;
         private int    _processId;
-        private string _sessionId  = string.Empty;
+        private int?   _messageKey;
         private string _userId     = string.Empty;
         private string _startTime  = string.Empty;
         private string _running    = string.Empty;
@@ -28,10 +28,10 @@ namespace MriAPPDriverMgrWin
             set { _processId = value; OnPropertyChanged(); }
         }
 
-        public string SessionId
+        public int? MessageKey
         {
-            get => _sessionId;
-            set { _sessionId = value; OnPropertyChanged(); }
+            get => _messageKey;
+            set { _messageKey = value; OnPropertyChanged(); }
         }
 
         public string UserId

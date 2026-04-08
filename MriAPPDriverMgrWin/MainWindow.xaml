@@ -143,9 +143,9 @@
                                     Binding="{Binding ProcessId}"
                                     Width="70"/>
 
-                <DataGridTextColumn Header="Session ID"
-                                    Binding="{Binding SessionId}"
-                                    Width="100"/>
+                <DataGridTextColumn Header="Msg Key"
+                                    Binding="{Binding MessageKey}"
+                                    Width="90"/>
 
                 <DataGridTextColumn Header="User ID"
                                     Binding="{Binding UserId}"

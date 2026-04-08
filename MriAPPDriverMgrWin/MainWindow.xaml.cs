@@ -58,7 +58,7 @@ namespace MriAPPDriverMgrWin
                             var dbInfo = await App.Repository.GetProcessInfoAsync(info.ProcessId);
                             if (dbInfo != null)
                             {
-                                info.SessionId    = dbInfo.SessionId;
+                                info.MessageKey   = dbInfo.MessageKey;
                                 info.UserId       = dbInfo.UserId;
                                 info.ReportName   = dbInfo.ReportName;
                                 info.ComputerName = dbInfo.ComputerName;
@@ -130,7 +130,7 @@ namespace MriAPPDriverMgrWin
                 {
                     ProcessId   = pid,
                     MachineName = App.TargetMachine,
-                    SessionId   = row?.SessionId,
+                    MessageKey  = row?.MessageKey,
                     UserId      = row?.UserId,
                     ReportName  = row?.ReportName,
                     StartTime   = row != null && DateTime.TryParse(row.StartTime, out var st)
@@ -139,6 +139,20 @@ namespace MriAPPDriverMgrWin
 
                 App.Logger.LogKilledProcess(info,
                     killedBy: $"WPF Manager (user: {Environment.UserName})");
+
+                // Update MRI_Server_Messages status
+                if (info.MessageKey.HasValue)
+                {
+                    try
+                    {
+                        await App.Repository.UpdateProcessStatusKilledAsync(info.MessageKey.Value);
+                    }
+                    catch (Exception dbEx)
+                    {
+                        App.Logger.LogError(
+                            $"Failed to update Status for MessageKey={info.MessageKey} after kill.", dbEx);
+                    }
+                }
 
                 if (row != null)
                     _rows.Remove(row);
@@ -180,7 +194,7 @@ namespace MriAPPDriverMgrWin
             {
                 MachineName = info.MachineName ?? string.Empty,
                 ProcessId   = info.ProcessId,
-                SessionId   = info.SessionId  ?? "N/A",
+                MessageKey  = info.MessageKey,
                 UserId      = info.UserId     ?? "N/A",
                 StartTime   = info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
                 Running     = FormatDuration(info.RunDuration),
