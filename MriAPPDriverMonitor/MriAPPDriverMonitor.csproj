@@ -4,7 +4,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <LangVersion>8.0</LangVersion>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>disable</ImplicitUsings>
     <RootNamespace>MriAPPDriverMonitor</RootNamespace>
     <AssemblyName>MriAPPDriverMonitor</AssemblyName>
   </PropertyGroup>

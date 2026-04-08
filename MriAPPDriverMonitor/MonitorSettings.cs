@@ -1,3 +1,5 @@
+using System;
+
 namespace MriAPPDriverMonitor
 {
     public class MonitorSettings
