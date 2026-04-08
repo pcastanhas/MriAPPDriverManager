@@ -1,45 +1,38 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
 using MriAPPDriverShared.Models;
 
 namespace MriAPPDriverMgrWin
 {
-    public sealed partial class MainWindow : Window
+    public partial class MainWindow : Window
     {
-        public ObservableCollection<ProcessRow> ProcessRows { get; } = new ObservableCollection<ProcessRow>();
-
-        private readonly DispatcherQueue _dispatcher;
-        private DispatcherQueueTimer? _refreshTimer;
+        private readonly ObservableCollection<ProcessRow> _rows = new ObservableCollection<ProcessRow>();
+        private readonly DispatcherTimer _refreshTimer;
         private bool _isRefreshing = false;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            _dispatcher = DispatcherQueue.GetForCurrentThread();
+            ProcessGrid.ItemsSource = _rows;
 
             TargetMachineText.Text = $"Target: {App.TargetMachine}";
             FooterText.Text = $"Auto-refresh every {App.RefreshIntervalSeconds}s";
 
-            StartRefreshTimer();
+            // Auto-refresh timer
+            _refreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(App.RefreshIntervalSeconds)
+            };
+            _refreshTimer.Tick += async (s, e) => await LoadProcessesAsync();
+            _refreshTimer.Start();
 
             // Initial load
-            _ = LoadProcessesAsync();
-        }
-
-        // ── Timer ────────────────────────────────────────────────────────────
-
-        private void StartRefreshTimer()
-        {
-            _refreshTimer = _dispatcher.CreateTimer();
-            _refreshTimer.Interval = TimeSpan.FromSeconds(App.RefreshIntervalSeconds);
-            _refreshTimer.Tick += (s, e) => _ = LoadProcessesAsync();
-            _refreshTimer.IsRepeating = true;
-            _refreshTimer.Start();
+            Loaded += async (s, e) => await LoadProcessesAsync();
         }
 
         // ── Load processes ────────────────────────────────────────────────────
@@ -53,12 +46,11 @@ namespace MriAPPDriverMgrWin
 
             try
             {
-                // Run WMI query off the UI thread (includes ~1s CPU sampling)
                 var processes = await Task.Run(async () =>
                 {
+                    // WMI query + ~1s CPU sampling happens here off the UI thread
                     var infos = App.ProcessHelper.GetRunningDriverProcesses();
 
-                    // Enrich each with DB info
                     foreach (var info in infos)
                     {
                         try
@@ -66,34 +58,36 @@ namespace MriAPPDriverMgrWin
                             var dbInfo = await App.Repository.GetProcessInfoAsync(info.ProcessId);
                             if (dbInfo != null)
                             {
-                                info.SessionId   = dbInfo.SessionId;
-                                info.UserId      = dbInfo.UserId;
-                                info.ReportName  = dbInfo.ReportName;
+                                info.SessionId    = dbInfo.SessionId;
+                                info.UserId       = dbInfo.UserId;
+                                info.ReportName   = dbInfo.ReportName;
                                 info.ComputerName = dbInfo.ComputerName;
                                 if (!info.StartTime.HasValue)
                                     info.StartTime = dbInfo.StartTime;
                             }
                         }
-                        catch { /* DB unavailable — show WMI-only data */ }
+                        catch { /* DB unavailable - show WMI-only data */ }
                     }
 
                     return infos;
                 });
 
-                // Update grid on UI thread
-                ProcessRows.Clear();
+                _rows.Clear();
                 foreach (var info in processes)
-                    ProcessRows.Add(ToRow(info));
+                    _rows.Add(ToRow(info));
 
                 var now = DateTime.Now.ToString("HH:mm:ss");
-                SetLoading(false, $"Last refreshed: {now} — {processes.Count} process(es)");
                 LastRefreshText.Text = $"Last refresh: {now}";
+                SetLoading(false, $"Last refreshed: {now} — {processes.Count} process(es) found");
             }
             catch (Exception ex)
             {
-                SetLoading(false, $"Error: {ex.Message}");
-                await ShowErrorAsync("Connection Error",
-                    $"Could not connect to {App.TargetMachine}:\n\n{ex.Message}");
+                SetLoading(false, $"Error connecting to {App.TargetMachine}: {ex.Message}");
+                MessageBox.Show(
+                    $"Could not connect to {App.TargetMachine}:\n\n{ex.Message}",
+                    "Connection Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
             finally
             {
@@ -108,76 +102,74 @@ namespace MriAPPDriverMgrWin
             if (sender is not Button btn || btn.Tag is not int pid)
                 return;
 
-            var row = FindRowByPid(pid);
+            var row        = FindRowByPid(pid);
             var reportName = row?.ReportName ?? "unknown report";
 
-            // Confirmation dialog
-            var dialog = new ContentDialog
-            {
-                Title           = "Confirm Kill",
-                Content         = $"Are you sure you want to kill PID {pid}?\n\nReport: {reportName}",
-                PrimaryButtonText   = "Kill",
-                CloseButtonText     = "Cancel",
-                DefaultButton   = ContentDialogButton.Close,
-                XamlRoot        = Content.XamlRoot
-            };
+            var confirm = MessageBox.Show(
+                $"Are you sure you want to kill PID {pid}?\n\nReport: {reportName}",
+                "Confirm Kill",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
 
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary)
+            if (confirm != MessageBoxResult.Yes)
                 return;
 
             SetLoading(true, $"Killing PID {pid}...");
 
             try
             {
-                var killed = await Task.Run(() =>
+                await Task.Run(() =>
                 {
                     if (!App.ProcessHelper.TryKill(pid, out string killError))
                         throw new InvalidOperationException(killError);
-                    return true;
                 });
 
-                // Build info for logging
+                // Build info for the log entry
                 var info = new DriverProcessInfo
                 {
-                    ProcessId  = pid,
+                    ProcessId   = pid,
                     MachineName = App.TargetMachine,
-                    SessionId  = row?.SessionId,
-                    UserId     = row?.UserId,
-                    ReportName = row?.ReportName,
-                    StartTime  = row != null && DateTime.TryParse(row.StartTime, out var st) ? st : (DateTime?)null
+                    SessionId   = row?.SessionId,
+                    UserId      = row?.UserId,
+                    ReportName  = row?.ReportName,
+                    StartTime   = row != null && DateTime.TryParse(row.StartTime, out var st)
+                                    ? st : (DateTime?)null
                 };
 
                 App.Logger.LogKilledProcess(info,
-                    killedBy: $"WinUI Manager (user: {Environment.UserName})");
+                    killedBy: $"WPF Manager (user: {Environment.UserName})");
 
-                // Remove from grid
                 if (row != null)
-                    ProcessRows.Remove(row);
+                    _rows.Remove(row);
 
                 SetLoading(false, $"PID {pid} killed successfully.");
             }
             catch (Exception ex)
             {
-                App.Logger.LogError($"Failed to kill PID={pid} via WinUI Manager. Error: {ex.Message}");
+                App.Logger.LogError(
+                    $"Failed to kill PID={pid} via WPF Manager. Error: {ex.Message}");
                 SetLoading(false, $"Failed to kill PID {pid}.");
-                await ShowErrorAsync("Kill Failed",
-                    $"Could not kill PID {pid}:\n\n{ex.Message}");
+                MessageBox.Show(
+                    $"Could not kill PID {pid}:\n\n{ex.Message}",
+                    "Kill Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
 
         // ── Refresh button ────────────────────────────────────────────────────
 
-        private void RefreshButton_Click(object sender, RoutedEventArgs e)
+        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
-            _ = LoadProcessesAsync();
+            await LoadProcessesAsync();
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
         private ProcessRow? FindRowByPid(int pid)
         {
-            foreach (var row in ProcessRows)
+            foreach (var row in _rows)
                 if (row.ProcessId == pid) return row;
             return null;
         }
@@ -208,21 +200,8 @@ namespace MriAPPDriverMgrWin
 
         private void SetLoading(bool isLoading, string status)
         {
-            LoadingRing.IsActive = isLoading;
             RefreshButton.IsEnabled = !isLoading;
-            StatusText.Text = status;
-        }
-
-        private async Task ShowErrorAsync(string title, string message)
-        {
-            var dialog = new ContentDialog
-            {
-                Title           = title,
-                Content         = message,
-                CloseButtonText = "OK",
-                XamlRoot        = Content.XamlRoot
-            };
-            await dialog.ShowAsync();
+            StatusText.Text         = status;
         }
     }
 }

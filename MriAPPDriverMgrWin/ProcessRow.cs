@@ -4,17 +4,14 @@ using System.Runtime.CompilerServices;
 
 namespace MriAPPDriverMgrWin
 {
-    /// <summary>
-    /// Observable row model bound to the DataGrid.
-    /// </summary>
     public class ProcessRow : INotifyPropertyChanged
     {
         private string _machineName = string.Empty;
-        private int _processId;
-        private string _sessionId = string.Empty;
-        private string _userId = string.Empty;
-        private string _startTime = string.Empty;
-        private string _running = string.Empty;
+        private int    _processId;
+        private string _sessionId  = string.Empty;
+        private string _userId     = string.Empty;
+        private string _startTime  = string.Empty;
+        private string _running    = string.Empty;
         private double _cpuPercent;
         private double _memoryMb;
         private string _reportName = string.Empty;

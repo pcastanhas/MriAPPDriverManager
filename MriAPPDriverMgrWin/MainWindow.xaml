@@ -1,15 +1,52 @@
-<Window
-    x:Class="MriAPPDriverMgrWin.MainWindow"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:MriAPPDriverMgrWin"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    Title="MRI APPDriver Manager">
+<Window x:Class="MriAPPDriverMgrWin.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MRI APPDriver Manager"
+        Height="480" Width="1200"
+        MinWidth="900" MinHeight="300"
+        WindowStartupLocation="CenterScreen">
 
-    <Grid Margin="16" RowSpacing="12">
+    <Window.Resources>
+        <!-- Header style -->
+        <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#333333"/>
+        </Style>
 
+        <!-- Kill button style -->
+        <Style x:Key="KillButtonStyle" TargetType="Button">
+            <Setter Property="Background"  Value="#C42B1C"/>
+            <Setter Property="Foreground"  Value="White"/>
+            <Setter Property="Padding"     Value="10,3"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"      Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#A4201D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#861915"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#CCCCCC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -17,134 +54,143 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header bar -->
-        <Grid Grid.Row="0">
+        <!-- ── Header bar ── -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="MRI APPDriver Manager"
-                           Style="{StaticResource TitleTextBlockStyle}"/>
+                           FontSize="20" FontWeight="Bold" Margin="0,0,16,0"/>
                 <TextBlock x:Name="TargetMachineText"
-                           VerticalAlignment="Center"
-                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                           Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="#D07700" VerticalAlignment="Center"/>
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock x:Name="LastRefreshText"
-                           VerticalAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           Style="{StaticResource CaptionTextBlockStyle}"/>
+                           FontSize="11" Foreground="#888888"
+                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <Button x:Name="RefreshButton"
-                        Content="&#xE72C; Refresh"
-                        FontFamily="Segoe MDL2 Assets"
+                        Content="⟳ Refresh"
+                        Padding="12,5"
                         Click="RefreshButton_Click"/>
             </StackPanel>
         </Grid>
 
-        <!-- Status bar -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-            <ProgressRing x:Name="LoadingRing" IsActive="False" Width="20" Height="20"/>
+        <!-- ── Status bar ── -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
             <TextBlock x:Name="StatusText"
-                       VerticalAlignment="Center"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Text="Ready"/>
+                       FontSize="11" Foreground="#666666"
+                       VerticalAlignment="Center"/>
         </StackPanel>
 
-        <!-- Process DataGrid -->
-        <ScrollViewer Grid.Row="2" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto">
-            <ListView x:Name="ProcessListView"
-                      ItemsSource="{x:Bind ProcessRows}"
-                      SelectionMode="None"
-                      IsItemClickEnabled="False">
+        <!-- ── DataGrid ── -->
+        <DataGrid x:Name="ProcessGrid"
+                  Grid.Row="2"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  CanUserReorderColumns="False"
+                  CanUserResizeRows="False"
+                  SelectionMode="Single"
+                  GridLinesVisibility="Horizontal"
+                  BorderBrush="#CCCCCC"
+                  BorderThickness="1"
+                  RowBackground="White"
+                  AlternatingRowBackground="#F7F7F7"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto">
 
-                <ListView.Header>
-                    <Grid x:Name="GridHeader"
-                          Background="{ThemeResource SystemFillColorSolidAttentionBackgroundBrush}"
-                          Padding="12,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="70"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="160"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="70"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="200"/>
-                            <ColumnDefinition Width="80"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Machine"      FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="PID"          FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="2" Text="Session ID"   FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="User ID"      FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="4" Text="Start Time"   FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="5" Text="Running"      FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="6" Text="CPU %"        FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="7" Text="Memory (MB)"  FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="8" Text="Report"       FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="9" Text=""             FontWeight="SemiBold"/>
-                    </Grid>
-                </ListView.Header>
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background"   Value="#F0F0F0"/>
+                    <Setter Property="Foreground"   Value="#333333"/>
+                    <Setter Property="FontWeight"   Value="SemiBold"/>
+                    <Setter Property="Padding"      Value="8,6"/>
+                    <Setter Property="BorderBrush"  Value="#CCCCCC"/>
+                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
 
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Padding" Value="0"/>
-                    </Style>
-                </ListView.ItemContainerStyle>
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Padding"       Value="8,4"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Padding="{TemplateBinding Padding}"
+                                        Background="{TemplateBinding Background}">
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </DataGrid.CellStyle>
 
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:ProcessRow">
-                        <Grid Padding="12,6"
-                              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                              BorderThickness="0,0,0,1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140"/>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="80"/>
-                            </Grid.ColumnDefinitions>
+            <DataGrid.Columns>
 
-                            <TextBlock Grid.Column="0" Text="{x:Bind MachineName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Grid.Column="1" Text="{x:Bind ProcessId}"   VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="{x:Bind SessionId}"   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Grid.Column="3" Text="{x:Bind UserId}"      VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Grid.Column="4" Text="{x:Bind StartTime}"   VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="5" Text="{x:Bind Running}"     VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="6" Text="{x:Bind CpuPercent}"  VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="7" Text="{x:Bind MemoryMb}"    VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="8" Text="{x:Bind ReportName}"  VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <DataGridTextColumn Header="Machine"
+                                    Binding="{Binding MachineName}"
+                                    Width="130"/>
 
-                            <Button Grid.Column="9"
-                                    Content="Kill"
-                                    Tag="{x:Bind ProcessId}"
+                <DataGridTextColumn Header="PID"
+                                    Binding="{Binding ProcessId}"
+                                    Width="70"/>
+
+                <DataGridTextColumn Header="Session ID"
+                                    Binding="{Binding SessionId}"
+                                    Width="100"/>
+
+                <DataGridTextColumn Header="User ID"
+                                    Binding="{Binding UserId}"
+                                    Width="100"/>
+
+                <DataGridTextColumn Header="Start Time"
+                                    Binding="{Binding StartTime}"
+                                    Width="150"/>
+
+                <DataGridTextColumn Header="Running"
+                                    Binding="{Binding Running}"
+                                    Width="90"/>
+
+                <DataGridTextColumn Header="CPU %"
+                                    Binding="{Binding CpuPercent, StringFormat={}{0:F1}}"
+                                    Width="70"/>
+
+                <DataGridTextColumn Header="Memory (MB)"
+                                    Binding="{Binding MemoryMb, StringFormat={}{0:F1}}"
+                                    Width="100"/>
+
+                <DataGridTextColumn Header="Report"
+                                    Binding="{Binding ReportName}"
+                                    Width="*"/>
+
+                <!-- Kill button column -->
+                <DataGridTemplateColumn Header="" Width="70" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Kill"
+                                    Style="{StaticResource KillButtonStyle}"
+                                    Tag="{Binding ProcessId}"
                                     Click="KillButton_Click"
-                                    Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Padding="12,4"/>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
+                                    Margin="4,2"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
-            </ListView>
-        </ScrollViewer>
+            </DataGrid.Columns>
+        </DataGrid>
 
-        <!-- Footer -->
+        <!-- ── Footer ── -->
         <TextBlock Grid.Row="3"
                    x:Name="FooterText"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                   Style="{StaticResource CaptionTextBlockStyle}"/>
-
+                   FontSize="11" Foreground="#888888"
+                   Margin="0,6,0,0"/>
     </Grid>
 </Window>
