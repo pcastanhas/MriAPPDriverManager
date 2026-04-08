@@ -124,16 +124,20 @@ namespace MriAPPDriverManager
             var dbInfo = await _repository.GetProcessInfoAsync(targetPid);
             MergeDbInfo(info, dbInfo);
 
-            Console.WriteLine(new string('-', 60));
-            Console.WriteLine($"  Machine    : {info.MachineName ?? _targetMachine}");
-            Console.WriteLine($"  PID        : {info.ProcessId}");
-            Console.WriteLine($"  Session ID : {info.SessionId ?? "N/A (not found in DB)"}");
-            Console.WriteLine($"  User ID    : {info.UserId ?? "N/A"}");
-            Console.WriteLine($"  Start Time : {info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"}");
-            Console.WriteLine($"  Running For: {FormatDuration(info.RunDuration)}");
-            Console.WriteLine($"  Report     : {info.ReportName ?? "N/A"}");
-            Console.WriteLine($"  Computer   : {info.ComputerName ?? "N/A"}");
-            Console.WriteLine(new string('-', 60));
+            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(
+                $"{"Machine",-18} {"PID",-8} {"Session ID",-14} {"User ID",-16} " +
+                $"{"Start Time",-22} {"Running",-12} {"Report",-40}");
+            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(
+                $"{(info.MachineName ?? _targetMachine),-18} " +
+                $"{info.ProcessId,-8} " +
+                $"{(info.SessionId ?? "N/A"),-14} " +
+                $"{(info.UserId ?? "N/A"),-16} " +
+                $"{info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",-22} " +
+                $"{FormatDuration(info.RunDuration),-12} " +
+                $"{Truncate(info.ReportName ?? "N/A", 40),-40}");
+            Console.WriteLine(new string('-', 110));
 
             return 0;
         }
