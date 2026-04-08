@@ -76,7 +76,13 @@
                 <Button x:Name="RefreshButton"
                         Content="⟳ Refresh"
                         Padding="12,5"
+                        Margin="0,0,8,0"
                         Click="RefreshButton_Click"/>
+                <Button x:Name="KillAllButton"
+                        Content="Kill All"
+                        Padding="12,5"
+                        Style="{StaticResource KillButtonStyle}"
+                        Click="KillAllButton_Click"/>
             </StackPanel>
         </Grid>
 

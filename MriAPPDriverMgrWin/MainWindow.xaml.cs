@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
@@ -172,6 +173,91 @@ namespace MriAPPDriverMgrWin
             }
         }
 
+        // ── Kill All button ───────────────────────────────────────────────────
+
+        private async void KillAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_rows.Count == 0)
+            {
+                MessageBox.Show(
+                    "There are no running processes to kill.",
+                    "Kill All",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                $"Are you sure you want to kill all {_rows.Count} running process(es)?",
+                "Confirm Kill All",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            // Snapshot the rows so we can iterate safely while removing
+            var rowsToKill = new List<ProcessRow>(_rows);
+
+            SetLoading(true, $"Killing {rowsToKill.Count} process(es)...");
+
+            int killed  = 0;
+            int failed  = 0;
+
+            foreach (var row in rowsToKill)
+            {
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        if (!App.ProcessHelper.TryKill(row.ProcessId, out string killError))
+                            throw new InvalidOperationException(killError);
+                    });
+
+                    var info = new DriverProcessInfo
+                    {
+                        ProcessId   = row.ProcessId,
+                        MachineName = App.TargetMachine,
+                        MessageKey  = row.MessageKey,
+                        UserId      = row.UserId,
+                        ReportName  = row.ReportName,
+                        StartTime   = DateTime.TryParse(row.StartTime, out var st) ? st : (DateTime?)null
+                    };
+
+                    App.Logger.LogKilledProcess(info,
+                        killedBy: $"WPF Manager Kill All (user: {Environment.UserName})");
+
+                    if (row.MessageKey.HasValue)
+                    {
+                        try
+                        {
+                            await App.Repository.UpdateProcessStatusKilledAsync(row.MessageKey.Value);
+                        }
+                        catch (Exception dbEx)
+                        {
+                            App.Logger.LogError(
+                                $"Failed to update Status for MessageKey={row.MessageKey} after Kill All.", dbEx);
+                        }
+                    }
+
+                    _rows.Remove(row);
+                    killed++;
+                }
+                catch (Exception ex)
+                {
+                    App.Logger.LogError($"Kill All: failed to kill PID={row.ProcessId}. Error: {ex.Message}");
+                    failed++;
+                }
+            }
+
+            var summary = failed == 0
+                ? $"Kill All complete — {killed} process(es) killed."
+                : $"Kill All complete — {killed} killed, {failed} failed. Check log for details.";
+
+            SetLoading(false, summary);
+        }
+
         // ── Refresh button ────────────────────────────────────────────────────
 
         private async void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -214,8 +300,9 @@ namespace MriAPPDriverMgrWin
 
         private void SetLoading(bool isLoading, string status)
         {
-            RefreshButton.IsEnabled = !isLoading;
-            StatusText.Text         = status;
+            RefreshButton.IsEnabled  = !isLoading;
+            KillAllButton.IsEnabled  = !isLoading;
+            StatusText.Text          = status;
         }
     }
 }
