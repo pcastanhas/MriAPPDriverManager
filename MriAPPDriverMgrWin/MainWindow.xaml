@@ -102,6 +102,7 @@
                   CanUserDeleteRows="False"
                   CanUserReorderColumns="False"
                   CanUserResizeRows="False"
+                  CanUserSortColumns="True"
                   SelectionMode="Single"
                   GridLinesVisibility="Horizontal"
                   BorderBrush="#CCCCCC"
@@ -119,6 +120,7 @@
                     <Setter Property="Padding"      Value="8,6"/>
                     <Setter Property="BorderBrush"  Value="#CCCCCC"/>
                     <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                    <Setter Property="Cursor"       Value="Hand"/>
                 </Style>
             </DataGrid.ColumnHeaderStyle>
 
@@ -143,41 +145,50 @@
 
                 <DataGridTextColumn Header="Machine"
                                     Binding="{Binding MachineName}"
+                                    SortMemberPath="MachineName"
                                     Width="130"/>
 
                 <DataGridTextColumn Header="PID"
                                     Binding="{Binding ProcessId}"
+                                    SortMemberPath="ProcessId"
                                     Width="70"/>
 
                 <DataGridTextColumn Header="Msg Key"
                                     Binding="{Binding MessageKey}"
+                                    SortMemberPath="MessageKey"
                                     Width="90"/>
 
                 <DataGridTextColumn Header="User ID"
                                     Binding="{Binding UserId}"
+                                    SortMemberPath="UserId"
                                     Width="100"/>
 
                 <DataGridTextColumn Header="Start Time"
                                     Binding="{Binding StartTime}"
+                                    SortMemberPath="StartTime"
                                     Width="150"/>
 
                 <DataGridTextColumn Header="Running"
                                     Binding="{Binding Running}"
+                                    SortMemberPath="Running"
                                     Width="90"/>
 
                 <DataGridTextColumn Header="CPU %"
                                     Binding="{Binding CpuPercent, StringFormat={}{0:F1}}"
+                                    SortMemberPath="CpuPercent"
                                     Width="70"/>
 
                 <DataGridTextColumn Header="Memory (MB)"
                                     Binding="{Binding MemoryMb, StringFormat={}{0:F1}}"
+                                    SortMemberPath="MemoryMb"
                                     Width="100"/>
 
                 <DataGridTextColumn Header="Report"
                                     Binding="{Binding ReportName}"
+                                    SortMemberPath="ReportName"
                                     Width="*"/>
 
-                <!-- Kill button column -->
+                <!-- Kill button column - not sortable -->
                 <DataGridTemplateColumn Header="" Width="70" CanUserSort="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

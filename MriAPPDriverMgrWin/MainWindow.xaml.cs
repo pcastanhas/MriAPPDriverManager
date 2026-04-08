@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Threading;
 using MriAPPDriverShared.Models;
 
@@ -13,13 +15,19 @@ namespace MriAPPDriverMgrWin
     {
         private readonly ObservableCollection<ProcessRow> _rows = new ObservableCollection<ProcessRow>();
         private readonly DispatcherTimer _refreshTimer;
+        private readonly ICollectionView _collectionView;
         private bool _isRefreshing = false;
+        private string _lastSortColumn = string.Empty;
+        private ListSortDirection _lastSortDirection = ListSortDirection.Ascending;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            ProcessGrid.ItemsSource = _rows;
+            _collectionView = CollectionViewSource.GetDefaultView(_rows);
+            ProcessGrid.ItemsSource = _collectionView;
+
+            ProcessGrid.Sorting += ProcessGrid_Sorting;
 
             TargetMachineText.Text = $"Target: {App.TargetMachine}";
             FooterText.Text = $"Auto-refresh every {App.RefreshIntervalSeconds}s";
@@ -263,6 +271,29 @@ namespace MriAPPDriverMgrWin
         private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
             await LoadProcessesAsync();
+        }
+
+        // ── Sorting ───────────────────────────────────────────────────────────
+
+        private void ProcessGrid_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            e.Handled = true;
+
+            var column     = e.Column.SortMemberPath;
+            var direction  = ListSortDirection.Ascending;
+
+            // Toggle direction if clicking the same column again
+            if (_lastSortColumn == column && _lastSortDirection == ListSortDirection.Ascending)
+                direction = ListSortDirection.Descending;
+
+            _lastSortColumn    = column;
+            _lastSortDirection = direction;
+
+            // Update the column header arrow
+            e.Column.SortDirection = direction;
+
+            _collectionView.SortDescriptions.Clear();
+            _collectionView.SortDescriptions.Add(new SortDescription(column, direction));
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
