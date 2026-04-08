@@ -16,7 +16,7 @@ namespace MriAPPDriverShared.Models
 
         /// <summary>How long the process has been running as of query time.</summary>
         public TimeSpan? RunDuration => StartTime.HasValue
-            ? DateTime.Now - StartTime.Value
+            ? (TimeSpan?)(DateTime.Now - StartTime.Value)
             : null;
     }
 }
