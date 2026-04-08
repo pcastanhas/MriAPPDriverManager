@@ -13,6 +13,8 @@ namespace MriAPPDriverManager
     {
         private static DriverRepository _repository = null!;
         private static DriverLogger _logger = null!;
+        private static DriverProcessHelper _processHelper = null!;
+        private static string _targetMachine = "localhost";
 
         private static async Task<int> Main(string[] args)
         {
@@ -26,8 +28,10 @@ namespace MriAPPDriverManager
                 ?? throw new InvalidOperationException(
                     "Connection string 'MriDatabase' not found in appsettings.json");
 
-            _repository = new DriverRepository(connectionString);
-            _logger     = new DriverLogger(AppContext.BaseDirectory, eventSource: "MriAPPDriverManager");
+            _targetMachine = config["AppSettings:TargetMachine"] ?? "localhost";
+            _repository    = new DriverRepository(connectionString);
+            _logger        = new DriverLogger(AppContext.BaseDirectory, eventSource: "MriAPPDriverManager");
+            _processHelper = new DriverProcessHelper(_targetMachine);
 
             // ─── Argument Parsing ─────────────────────────────────────────────
             if (args.Length == 0)
@@ -65,46 +69,63 @@ namespace MriAPPDriverManager
 
         private static async Task<int> HandleRunningAsync()
         {
-            var processes = DriverProcessHelper.GetRunningDriverProcesses();
+            List<DriverProcessInfo> processes;
+            try
+            {
+                processes = _processHelper.GetRunningDriverProcesses();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ERROR] Could not connect to {_targetMachine}: {ex.Message}");
+                return 1;
+            }
 
             if (processes.Count == 0)
             {
-                Console.WriteLine("No MriAPPDriver.exe processes are currently running.");
+                Console.WriteLine($"No MriAPPDriver.exe processes are currently running on {_targetMachine}.");
                 return 0;
             }
 
-            Console.WriteLine($"Found {processes.Count} running MriAPPDriver.exe process(es):");
-            Console.WriteLine(new string('-', 100));
+            Console.WriteLine($"Found {processes.Count} running MriAPPDriver.exe process(es) on {_targetMachine}:");
+            Console.WriteLine(new string('-', 110));
             PrintHeader();
-            Console.WriteLine(new string('-', 100));
+            Console.WriteLine(new string('-', 110));
 
-            foreach (var process in processes)
+            foreach (var info in processes)
             {
-                var info   = DriverProcessHelper.BuildBasicInfo(process);
-                var dbInfo = await _repository.GetProcessInfoAsync(process.Id);
+                var dbInfo = await _repository.GetProcessInfoAsync(info.ProcessId);
                 MergeDbInfo(info, dbInfo);
                 PrintProcessRow(info);
-                process.Dispose();
             }
 
-            Console.WriteLine(new string('-', 100));
+            Console.WriteLine(new string('-', 110));
             return 0;
         }
 
         private static async Task<int> HandleInfoAsync(int targetPid)
         {
-            var process = DriverProcessHelper.GetProcessById(targetPid);
-            if (process == null)
+            DriverProcessInfo? info;
+            try
             {
-                Console.Error.WriteLine($"[ERROR] No running MriAPPDriver.exe process found with PID {targetPid}.");
+                info = _processHelper.GetProcessById(targetPid);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ERROR] Could not connect to {_targetMachine}: {ex.Message}");
                 return 1;
             }
 
-            var info   = DriverProcessHelper.BuildBasicInfo(process);
+            if (info == null)
+            {
+                Console.Error.WriteLine($"[ERROR] No running MriAPPDriver.exe process found with PID {targetPid} on {_targetMachine}.");
+                return 1;
+            }
+
             var dbInfo = await _repository.GetProcessInfoAsync(targetPid);
             MergeDbInfo(info, dbInfo);
 
             Console.WriteLine(new string('-', 60));
+            Console.WriteLine($"  Machine    : {info.MachineName ?? _targetMachine}");
             Console.WriteLine($"  PID        : {info.ProcessId}");
             Console.WriteLine($"  Session ID : {info.SessionId ?? "N/A (not found in DB)"}");
             Console.WriteLine($"  User ID    : {info.UserId ?? "N/A"}");
@@ -114,40 +135,46 @@ namespace MriAPPDriverManager
             Console.WriteLine($"  Computer   : {info.ComputerName ?? "N/A"}");
             Console.WriteLine(new string('-', 60));
 
-            process.Dispose();
             return 0;
         }
 
         private static async Task<int> HandleKillAsync(int targetPid)
         {
-            var process = DriverProcessHelper.GetProcessById(targetPid);
-            if (process == null)
+            DriverProcessInfo? info;
+            try
             {
-                Console.Error.WriteLine($"[ERROR] No running MriAPPDriver.exe process found with PID {targetPid}.");
+                info = _processHelper.GetProcessById(targetPid);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ERROR] Could not connect to {_targetMachine}: {ex.Message}");
                 return 1;
             }
 
-            var info   = DriverProcessHelper.BuildBasicInfo(process);
+            if (info == null)
+            {
+                Console.Error.WriteLine($"[ERROR] No running MriAPPDriver.exe process found with PID {targetPid} on {_targetMachine}.");
+                return 1;
+            }
+
             var dbInfo = await _repository.GetProcessInfoAsync(targetPid);
             MergeDbInfo(info, dbInfo);
 
-            Console.WriteLine($"Killing PID {targetPid} ({info.ReportName ?? "unknown report"})...");
+            Console.WriteLine($"Killing PID {targetPid} on {_targetMachine} ({info.ReportName ?? "unknown report"})...");
 
-            if (DriverProcessHelper.TryKill(process, out string killError))
+            if (_processHelper.TryKill(targetPid, out string killError))
             {
                 _logger.LogKilledProcess(info, killedBy: $"Manager CLI (user: {Environment.UserName})");
-                Console.WriteLine($"[OK] PID {targetPid} killed successfully.");
+                Console.WriteLine($"[OK] PID {targetPid} on {_targetMachine} killed successfully.");
                 Console.WriteLine($"     Session: {info.SessionId ?? "N/A"} | User: {info.UserId ?? "N/A"} | Report: {info.ReportName ?? "N/A"}");
             }
             else
             {
-                _logger.LogError($"Failed to kill PID={targetPid} via Manager CLI. Error: {killError}");
-                Console.Error.WriteLine($"[ERROR] Could not kill PID {targetPid}: {killError}");
-                process.Dispose();
+                _logger.LogError($"Failed to kill PID={targetPid} on {_targetMachine} via Manager CLI. Error: {killError}");
+                Console.Error.WriteLine($"[ERROR] Could not kill PID {targetPid} on {_targetMachine}: {killError}");
                 return 1;
             }
 
-            process.Dispose();
             return 0;
         }
 
@@ -174,12 +201,15 @@ namespace MriAPPDriverManager
 
         private static void PrintHeader()
         {
-            Console.WriteLine($"{"PID",-8} {"Session ID",-14} {"User ID",-16} {"Start Time",-22} {"Running",-12} {"Report",-40}");
+            Console.WriteLine(
+                $"{"Machine",-18} {"PID",-8} {"Session ID",-14} {"User ID",-16} " +
+                $"{"Start Time",-22} {"Running",-12} {"Report",-40}");
         }
 
         private static void PrintProcessRow(DriverProcessInfo info)
         {
             Console.WriteLine(
+                $"{(info.MachineName ?? _targetMachine),-18} " +
                 $"{info.ProcessId,-8} " +
                 $"{(info.SessionId ?? "N/A"),-14} " +
                 $"{(info.UserId ?? "N/A"),-16} " +
@@ -205,7 +235,7 @@ namespace MriAPPDriverManager
             Console.WriteLine("Usage: MriAPPDriverManager <action> [pid]");
             Console.WriteLine();
             Console.WriteLine("Actions:");
-            Console.WriteLine("  --running          List all running MriAPPDriver.exe processes with report info");
+            Console.WriteLine("  --running          List all running MriAPPDriver.exe processes on the target machine");
             Console.WriteLine("  --info   <pid>     Show detailed info for a specific MriAPPDriver.exe process");
             Console.WriteLine("  --kill   <pid>     Kill a specific MriAPPDriver.exe process and log the event");
             Console.WriteLine();
@@ -213,6 +243,8 @@ namespace MriAPPDriverManager
             Console.WriteLine("  MriAPPDriverManager --running");
             Console.WriteLine("  MriAPPDriverManager --info 12308");
             Console.WriteLine("  MriAPPDriverManager --kill 12308");
+            Console.WriteLine();
+            Console.WriteLine("Target machine is configured in appsettings.json under AppSettings:TargetMachine.");
             Console.WriteLine();
         }
     }

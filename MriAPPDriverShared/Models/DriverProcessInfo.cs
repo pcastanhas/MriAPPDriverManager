@@ -9,6 +9,7 @@ namespace MriAPPDriverShared.Models
     public class DriverProcessInfo
     {
         public int ProcessId { get; set; }
+        public string? MachineName { get; set; }
         public string? SessionId { get; set; }
         public string? UserId { get; set; }
         public DateTime? StartTime { get; set; }
