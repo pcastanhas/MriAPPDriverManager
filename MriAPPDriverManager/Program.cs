@@ -87,9 +87,9 @@ namespace MriAPPDriverManager
             }
 
             Console.WriteLine($"Found {processes.Count} running MriAPPDriver.exe process(es) on {_targetMachine}:");
-            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(new string('-', 100));
             PrintHeader();
-            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(new string('-', 100));
 
             foreach (var info in processes)
             {
@@ -98,7 +98,7 @@ namespace MriAPPDriverManager
                 PrintProcessRow(info);
             }
 
-            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(new string('-', 100));
             return 0;
         }
 
@@ -124,20 +124,20 @@ namespace MriAPPDriverManager
             var dbInfo = await _repository.GetProcessInfoAsync(targetPid);
             MergeDbInfo(info, dbInfo);
 
-            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(new string('-', 100));
             Console.WriteLine(
-                $"{"Machine",-18} {"PID",-8} {"Session ID",-14} {"User ID",-16} " +
-                $"{"Start Time",-22} {"Running",-12} {"Report",-40}");
-            Console.WriteLine(new string('-', 110));
+                $"{"Machine",-18} {"PID",-8} {"Session ID",-12} {"User ID",-12} " +
+                $"{"Start Time",-22} {"Running",-10} {"Report",-40}");
+            Console.WriteLine(new string('-', 100));
             Console.WriteLine(
                 $"{(info.MachineName ?? _targetMachine),-18} " +
                 $"{info.ProcessId,-8} " +
-                $"{(info.SessionId ?? "N/A"),-14} " +
-                $"{(info.UserId ?? "N/A"),-16} " +
+                $"{(info.SessionId ?? "N/A"),-12} " +
+                $"{(info.UserId ?? "N/A"),-12} " +
                 $"{info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",-22} " +
-                $"{FormatDuration(info.RunDuration),-12} " +
+                $"{FormatDuration(info.RunDuration),-10} " +
                 $"{Truncate(info.ReportName ?? "N/A", 40),-40}");
-            Console.WriteLine(new string('-', 110));
+            Console.WriteLine(new string('-', 100));
 
             return 0;
         }
@@ -206,8 +206,8 @@ namespace MriAPPDriverManager
         private static void PrintHeader()
         {
             Console.WriteLine(
-                $"{"Machine",-18} {"PID",-8} {"Session ID",-14} {"User ID",-16} " +
-                $"{"Start Time",-22} {"Running",-12} {"Report",-40}");
+                $"{"Machine",-18} {"PID",-8} {"Session ID",-12} {"User ID",-12} " +
+                $"{"Start Time",-22} {"Running",-10} {"Report",-40}");
         }
 
         private static void PrintProcessRow(DriverProcessInfo info)
@@ -215,10 +215,10 @@ namespace MriAPPDriverManager
             Console.WriteLine(
                 $"{(info.MachineName ?? _targetMachine),-18} " +
                 $"{info.ProcessId,-8} " +
-                $"{(info.SessionId ?? "N/A"),-14} " +
-                $"{(info.UserId ?? "N/A"),-16} " +
+                $"{(info.SessionId ?? "N/A"),-12} " +
+                $"{(info.UserId ?? "N/A"),-12} " +
                 $"{info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",-22} " +
-                $"{FormatDuration(info.RunDuration),-12} " +
+                $"{FormatDuration(info.RunDuration),-10} " +
                 $"{Truncate(info.ReportName ?? "N/A", 40),-40}");
         }
 
