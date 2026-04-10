@@ -39,7 +39,7 @@ namespace MriAPPDriverMonitor
             {
                 try
                 {
-                    await ScanAndKillStaleProcessesAsync();
+                    await ScanAndLogProcessesAsync();
                 }
                 catch (Exception ex)
                 {
@@ -54,14 +54,17 @@ namespace MriAPPDriverMonitor
             _logger.LogInfo("MriAPPDriverMonitor stopped.");
         }
 
-        private async Task ScanAndKillStaleProcessesAsync()
+        /// <summary>
+        /// Main poll cycle: enumerates all running MriAPPDriver.exe processes, enriches each
+        /// with DB data, logs the full snapshot, then kills any that exceed the stale threshold.
+        /// </summary>
+        private async Task ScanAndLogProcessesAsync()
         {
-            var threshold = TimeSpan.FromMinutes(_settings.ProcessAgeThresholdMinutes);
-
-            List<MriAPPDriverShared.Models.DriverProcessInfo> staleProcesses;
+            // ── 1. Enumerate all running processes (includes CPU% + memory) ────
+            List<MriAPPDriverShared.Models.DriverProcessInfo> allProcesses;
             try
             {
-                staleProcesses = _processHelper.GetStaleDriverProcesses(threshold);
+                allProcesses = _processHelper.GetRunningDriverProcesses();
             }
             catch (Exception ex)
             {
@@ -69,16 +72,11 @@ namespace MriAPPDriverMonitor
                 return;
             }
 
-            if (staleProcesses.Count == 0)
-                return;
-
-            _logger.LogInfo($"Found {staleProcesses.Count} stale MriAPPDriver.exe process(es) on {_settings.TargetMachine}.");
-
-            foreach (var info in staleProcesses)
+            // ── 2. Enrich every process with DB data ──────────────────────────
+            foreach (var info in allProcesses)
             {
                 try
                 {
-                    // Enrich with database info
                     var dbInfo = await _repository.GetProcessInfoAsync(info.ProcessId);
                     if (dbInfo != null)
                     {
@@ -90,8 +88,30 @@ namespace MriAPPDriverMonitor
                         if (!info.StartTime.HasValue)
                             info.StartTime = dbInfo.StartTime;
                     }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Could not retrieve DB info for PID={info.ProcessId}.", ex);
+                }
+            }
 
-                    // Kill the process via WMI
+            // ── 3. Log the full snapshot (same data points as the WPF manager) ─
+            _logger.LogRunningProcesses(allProcesses, _settings.TargetMachine);
+
+            // ── 4. Kill any processes that exceed the stale threshold ──────────
+            var threshold = TimeSpan.FromMinutes(_settings.ProcessAgeThresholdMinutes);
+            var staleProcesses = allProcesses.FindAll(
+                p => p.StartTime.HasValue && p.StartTime.Value < DateTime.Now - threshold);
+
+            if (staleProcesses.Count == 0)
+                return;
+
+            _logger.LogInfo($"Found {staleProcesses.Count} stale MriAPPDriver.exe process(es) on {_settings.TargetMachine}.");
+
+            foreach (var info in staleProcesses)
+            {
+                try
+                {
                     if (_processHelper.TryKill(info.ProcessId, out string killError))
                     {
                         _logger.LogKilledProcess(info, killedBy: "Monitor Service");

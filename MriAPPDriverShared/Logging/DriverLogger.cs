@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using MriAPPDriverShared.Models;
@@ -51,6 +52,49 @@ namespace MriAPPDriverShared.Logging
         public void LogInfo(string message)
         {
             WriteToFile($"[INFO]  {message}");
+        }
+
+        /// <summary>
+        /// Logs a snapshot of all currently running driver processes to the daily log file.
+        /// Captures the same data points as the WPF manager: Machine, PID, MessageKey, User,
+        /// StartTime, Duration, CPU%, Memory (MB), and ReportName.
+        /// </summary>
+        public void LogRunningProcesses(IEnumerable<DriverProcessInfo> processes, string targetMachine)
+        {
+            var list = processes as IList<DriverProcessInfo> ?? new System.Collections.Generic.List<DriverProcessInfo>(processes);
+
+            if (list.Count == 0)
+            {
+                WriteToFile($"[POLL]  {targetMachine} — 0 MriAPPDriver.exe process(es) running.");
+                return;
+            }
+
+            WriteToFile($"[POLL]  {targetMachine} — {list.Count} MriAPPDriver.exe process(es) running:");
+
+            foreach (var info in list)
+            {
+                var duration = FormatDuration(info.RunDuration);
+
+                var line =
+                    $"[PROC]    PID={info.ProcessId,-6} | " +
+                    $"MsgKey={info.MessageKey?.ToString() ?? "N/A",-10} | " +
+                    $"User={info.UserId ?? "N/A",-15} | " +
+                    $"Started={info.StartTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"} | " +
+                    $"Running={duration,-12} | " +
+                    $"CPU={info.CpuPercent,5:F1}% | " +
+                    $"Mem={info.MemoryMb,7:F1} MB | " +
+                    $"Report={info.ReportName ?? "N/A"}";
+
+                WriteToFile(line);
+            }
+        }
+
+        private static string FormatDuration(TimeSpan? duration)
+        {
+            if (!duration.HasValue) return "N/A";
+            return duration.Value.TotalHours >= 1
+                ? $"{(int)duration.Value.TotalHours}h {duration.Value.Minutes:D2}m"
+                : $"{duration.Value.Minutes}m {duration.Value.Seconds:D2}s";
         }
 
         /// <summary>
